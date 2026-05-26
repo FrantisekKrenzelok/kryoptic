@@ -802,8 +802,8 @@ impl AesOperation {
                         buf: bytes_to_vec(params.pNonce, noncelen),
                         fixedbits: noncefixedbits,
                         generator: params.nonceGenerator,
-                        counter: 0,
-                        maxcount: 0,
+                        counter: self.params.iv.counter,
+                        maxcount: self.params.iv.maxcount,
                     };
                 } else {
                     self.params.iv = AesIvData {
@@ -873,8 +873,8 @@ impl AesOperation {
                         buf: bytes_to_vec(params.pIv, ivlen),
                         fixedbits: ivfixedbits,
                         generator: params.ivGenerator,
-                        counter: 0,
-                        maxcount: 0,
+                        counter: self.params.iv.counter,
+                        maxcount: self.params.iv.maxcount,
                     };
                 } else {
                     self.params.iv = AesIvData {
@@ -980,16 +980,22 @@ impl AesOperation {
         mech: &CK_MECHANISM,
         key: &Object,
     ) -> Result<AesOperation> {
+        #[allow(unused_mut)]
+        let mut params = Self::init_params(&CK_MECHANISM {
+            mechanism: CK_UNAVAILABLE_INFORMATION,
+            pParameter: std::ptr::null_mut(),
+            ulParameterLen: 0,
+        })?;
+
+        #[cfg(feature = "fips")]
+        params.zeroize();
+
         Ok(AesOperation {
             mech: mech.mechanism,
             op: CKF_MESSAGE_ENCRYPT,
             key: object_to_raw_key(key)?,
             /* params are not set until later */
-            params: Self::init_params(&CK_MECHANISM {
-                mechanism: CK_UNAVAILABLE_INFORMATION,
-                pParameter: std::ptr::null_mut(),
-                ulParameterLen: 0,
-            })?,
+            params,
             finalized: false,
             in_use: false,
             ctx: None,
@@ -1016,7 +1022,6 @@ impl AesOperation {
 
         #[cfg(feature = "fips")]
         {
-            self.params.zeroize();
             zeromem(self.buffer.as_mut_slice());
             self.fips_approval.reset();
         }
@@ -1051,16 +1056,22 @@ impl AesOperation {
         mech: &CK_MECHANISM,
         key: &Object,
     ) -> Result<AesOperation> {
+        #[allow(unused_mut)]
+        let mut params = Self::init_params(&CK_MECHANISM {
+            mechanism: CK_UNAVAILABLE_INFORMATION,
+            pParameter: std::ptr::null_mut(),
+            ulParameterLen: 0,
+        })?;
+
+        #[cfg(feature = "fips")]
+        params.zeroize();
+
         Ok(AesOperation {
             mech: mech.mechanism,
             op: CKF_MESSAGE_DECRYPT,
             key: object_to_raw_key(key)?,
             /* params are not set until later */
-            params: Self::init_params(&CK_MECHANISM {
-                mechanism: CK_UNAVAILABLE_INFORMATION,
-                pParameter: std::ptr::null_mut(),
-                ulParameterLen: 0,
-            })?,
+            params,
             finalized: false,
             in_use: false,
             ctx: None,
@@ -1087,7 +1098,6 @@ impl AesOperation {
 
         #[cfg(feature = "fips")]
         {
-            self.params.zeroize();
             zeromem(self.buffer.as_mut_slice());
             self.fips_approval.reset();
         }
